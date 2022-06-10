@@ -22,9 +22,9 @@ export class TableNode extends Node implements CopyAble {
     constructor(readonly meta: TableMeta, readonly parent: Node) {
         super(`${meta.name}`)
         this.table = meta.name
-        this.description = `${meta.comment || ''} ${(meta.rows!=null) ? `Rows ${meta.rows}` : ''}`
-        if(Util.supportColorIcon){
-            this.iconPath=new vscode.ThemeIcon("split-horizontal",new vscode.ThemeColor("terminal.ansiGreen"))
+        this.description = `${meta.comment || ''} ${(meta.rows != null) ? `Rows ${meta.rows}` : ''}`
+        if (Util.supportColorIcon) {
+            // this.iconPath=new vscode.ThemeIcon("split-horizontal",new vscode.ThemeColor("problemsWarningIcon.foreground"))
         }
         this.init(parent)
         this.tooltip = this.getToolTipe(meta)
@@ -68,14 +68,8 @@ export class TableNode extends Node implements CopyAble {
                 sql = sql.replace(/\\n/g, '\n');
             }
         } else {
-            const childs = await this.getChildren()
-            let table = this.table;
-            if (this.dbType == DatabaseType.MSSQL) {
-                const tables = this.table.split(".")
-                tables.shift()
-                table = tables.join(".")
-            }
-            sql = `CREATE TABLE ${table}(\n`
+            const childs = await this.getChildren();
+            sql = `CREATE TABLE ${this.table}(\n`
             for (let i = 0; i < childs.length; i++) {
                 const child: ColumnNode = childs[i] as ColumnNode;
                 if (i == childs.length - 1) {
@@ -215,6 +209,12 @@ ROW_FORMAT : ${meta.row_format}
         })
     }
 
+    public async selectSqlTemplate() {
+        const sql = `SELECT * FROM ${Util.wrap(this.table)}`;
+        QueryUnit.showSQLTextDocument(this, sql, Template.table);
+
+    }
+
     public deleteSqlTemplate(): any {
         this
             .getChildren()
@@ -252,7 +252,7 @@ ROW_FORMAT : ${meta.row_format}
             const count = await this.execute(`select max(${primaryKey}) max from ${this.wrap(this.table)}`);
             if (count && count[0]?.max) {
                 const max = count[0].max;
-                return Number.isInteger(max) ? max : 0;
+                return Number.isInteger(max) || max.match(/^\d+$/) ? max : 0;
             }
         }
 

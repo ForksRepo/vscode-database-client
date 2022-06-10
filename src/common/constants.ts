@@ -16,8 +16,8 @@ export class Pattern {
 
 export enum CacheKey {
     // sql
-    ConectionsKey = "mysql.connections",
-    CollapseSate = "mysql.database.cache.collapseState",
+    DATBASE_CONECTIONS = "mysql.connections",
+    DATABASE_SATE = "mysql.database.cache.collapseState",
     // nosql
     NOSQL_CONNECTION = "redis.connections",
     COLLAPSE_SATE = "redis.cache.collapseState",
@@ -26,6 +26,7 @@ export enum CacheKey {
 }
 
 export enum ConfigKey {
+    HIGHLIGHT_SQL_BLOCK = "highlightSQLBlock",
     DEFAULT_LIMIT = "defaultSelectLimit",
     PREFER_CONNECTION_NAME = "preferConnectionName",
     DISABLE_SQL_CODELEN = "disableSqlCodeLen",

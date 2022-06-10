@@ -4,7 +4,7 @@ import { EsRequest } from "@/model/es/esRequest";
 import { ServiceManager } from "@/service/serviceManager";
 import { basename, extname } from "path";
 import { env, Uri, ViewColumn, window } from "vscode";
-import { Trans } from "~/common/trans";
+import { Trans } from "@/common/trans";
 import { ConfigKey, DatabaseType, MessageType } from "../../common/constants";
 import { Global } from "../../common/global";
 import { ViewManager } from "../../common/viewManager";
@@ -48,9 +48,11 @@ export class QueryPage {
                 }).on('execute', (params) => {
                     QueryUnit.runQuery(params.sql, dbOption, queryParam.queryOption);
                 }).on('next', async (params) => {
+                    const executeTime = new Date().getTime();
                     const sql = ServiceManager.getPageService(dbOption.dbType).build(params.sql, params.pageNum, params.pageSize)
                     dbOption.execute(sql).then((rows) => {
-                        handler.emit(MessageType.NEXT_PAGE, { sql, data: rows })
+                        const costTime = new Date().getTime() - executeTime;
+                        handler.emit(MessageType.NEXT_PAGE, { sql, data: rows ,costTime})
                     })
                 }).on("full", () => {
                     handler.panel.reveal(ViewColumn.One)
@@ -67,12 +69,12 @@ export class QueryPage {
                 }).on('copy', value => {
                     Util.copyToBoard(value)
                 }).on('count', async (params) => {
-                    if(dbOption.dbType==DatabaseType.MONGO_DB){
-                        const sql=params.sql.replace(/(.+?find\(.+?\)).+/i, '$1').replace("find","count");
+                    if (dbOption.dbType == DatabaseType.MONGO_DB) {
+                        const sql = params.sql.replace(/(.+?find\(.+?\)).+/i, '$1').replace("find", "count");
                         dbOption.execute(sql).then((count) => {
                             handler.emit('COUNT', { data: count })
                         })
-                    }else{
+                    } else {
                         dbOption.execute(params.sql.replace(/\bSELECT\b.+?\bFROM\b/i, 'select count(*) count from')).then((rows) => {
                             handler.emit('COUNT', { data: rows[0].count })
                         })
@@ -107,12 +109,14 @@ export class QueryPage {
             case MessageType.DATA:
                 if (queryParam.connection.dbType == DatabaseType.ES) {
                     await this.loadEsColumnList(queryParam);
-                }else if (queryParam.connection.dbType == DatabaseType.MONGO_DB) {
+                } else if (queryParam.connection.dbType == DatabaseType.MONGO_DB) {
                     await this.loadMongoColumnList(queryParam);
-                }  else {
+                } else {
                     await this.loadColumnList(queryParam);
                 }
-                ((queryParam.res)as DataResponse).pageSize=ServiceManager.getPageService(queryParam.connection.dbType).getPageSize(queryParam.res.sql)
+                const pageSize = ServiceManager.getPageService(queryParam.connection.dbType).getPageSize(queryParam.res.sql);
+                ((queryParam.res) as DataResponse).pageSize = (queryParam.res.data?.length && queryParam.res.data.length > pageSize)
+                    ? queryParam.res.data.length : pageSize;
                 break;
             case MessageType.MESSAGE_BLOCK:
                 queryParam.res.message = `EXECUTE SUCCESS:<br><br>&nbsp;&nbsp;${queryParam.res.sql}`;
@@ -193,8 +197,8 @@ export class QueryPage {
             tableName = fields[0].orgTable;
             database = fields[0].schema || fields[0].db;
             queryParam.res.database = database;
-        }else{
-            tableName=tableName.replace(/^"?(.+?)"?$/,'$1')
+        } else {
+            tableName = tableName.replace(/^"?(.+?)"?$/, '$1')
         }
 
         const tableNode = queryParam.connection.getByRegion(tableName)

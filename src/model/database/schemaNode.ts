@@ -1,3 +1,4 @@
+import { FileModel } from "@/common/filesManager";
 import { Global } from "@/common/global";
 import * as vscode from "vscode";
 import { DatabaseType, ModelType } from "../../common/constants";
@@ -35,8 +36,8 @@ export class SchemaNode extends Node implements CopyAble {
     private getIcon(active?: boolean): vscode.ThemeIcon {
 
         const iconId = this.dbType == DatabaseType.MYSQL ? "database" : "symbol-struct"
-        if (active && Util.supportColorIcon()) {
-            return new vscode.ThemeIcon(iconId, new vscode.ThemeColor('charts.blue'));
+        if(Util.supportColorIcon()){
+            return new vscode.ThemeIcon(iconId, new vscode.ThemeColor(active?'charts.blue':'dropdown.foreground'));
         }
         return new vscode.ThemeIcon(iconId);
     }
@@ -109,7 +110,7 @@ export class SchemaNode extends Node implements CopyAble {
 
     public async newQuery() {
 
-        QueryUnit.showSQLTextDocument(this, '', `${this.schema}.sql`)
+        QueryUnit.showSQLTextDocument(this,'',`${this.schema}.sql`,FileModel.APPEND)
 
     }
 

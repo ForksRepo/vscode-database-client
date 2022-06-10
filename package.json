@@ -2,7 +2,7 @@
 	"name": "vscode-mysql-client2",
 	"displayName": "MySQL",
 	"description": "Database Client for vscode",
-	"version": "3.8.9",
+	"version": "3.9.8",
 	"publisher": "cweijan",
 	"icon": "resources/logo.png",
 	"engines": {
@@ -45,6 +45,17 @@
 					"es"
 				],
 				"configuration": "./syntaxes/es.configuration.json"
+			},
+			{
+				"id": "sql",
+				"extensions": [
+					".sql",
+					".dsql"
+				],
+				"aliases": [
+					"SQL"
+				],
+				"configuration": "./syntaxes/language-configuration.json"
 			}
 		],
 		"snippets": [
@@ -69,12 +80,12 @@
 			"activitybar": [
 				{
 					"id": "github-cweijan-mysql",
-					"title": "Explorer",
+					"title": "Database",
 					"icon": "resources/icon/database-container.svg"
 				},
 				{
 					"id": "github-cweijan-nosql",
-					"title": "Explorer",
+					"title": "NoSQL",
 					"icon": "resources/image/other-container.png"
 				}
 			]
@@ -85,7 +96,6 @@
 					"id": "github.cweijan.mysql",
 					"name": "Database"
 				}
-				
 			],
 			"github-cweijan-nosql": [
 				{
@@ -141,6 +151,12 @@
 				"category": "MySQL"
 			},
 			{
+				"command": "mysql.query.run",
+				"title": "%command.query.run%",
+				"icon": "$(run)",
+				"category": "MySQL"
+			},
+			{
 				"command": "mysql.connection.add",
 				"title": "%command.connection.add%",
 				"icon": "$(add)",
@@ -155,6 +171,12 @@
 			{
 				"command": "mysql.connection.edit",
 				"title": "%command.connection.edit%",
+				"category": "MySQL"
+			},
+			{
+				"command": "mysql.connection.config",
+				"title": "%command.connection.config%",
+				"icon": "$(gear)",
 				"category": "MySQL"
 			},
 			{
@@ -307,6 +329,12 @@
 				"category": "MySQL"
 			},
 			{
+				"command": "mysql.template.sql",
+				"title": "%command.template.sql%",
+				"category": "MySQL",
+				"icon": "$(symbol-file)"
+			},
+			{
 				"command": "mysql.template.table",
 				"title": "%command.template.table%",
 				"category": "MySQL",
@@ -449,8 +477,18 @@
 				"when": "editorLangId == sql"
 			},
 			{
+				"command": "mysql.runQuery",
+				"key": "ctrl+enter",
+				"when": "editorLangId == sql"
+			},
+			{
 				"command": "mysql.runAllQuery",
 				"key": "ctrl+f9",
+				"when": "editorLangId == sql"
+			},
+			{
+				"command": "mysql.runAllQuery",
+				"key": "ctrl+shift+enter",
 				"when": "editorLangId == sql"
 			},
 			{
@@ -511,8 +549,13 @@
 					"group": "navigation@-2"
 				},
 				{
-					"command": "mysql.util.github",
+					"command": "mysql.connection.config",
 					"when": "view =~ /cweijan.+?ql/",
+					"group": "navigation@-3"
+				},
+				{
+					"command": "mysql.util.github",
+					"when": "view == github.cweijan.nosql",
 					"group": "navigation@-3"
 				}
 			],
@@ -553,6 +596,11 @@
 					"group": "2_mysql@0"
 				},
 				{
+					"command": "mysql.query.run",
+					"when": "view =~ /cweijan.+?ql/ && viewItem == query",
+					"group": "2_mysql@0"
+				},
+				{
 					"command": "mysql.refresh",
 					"when": "view =~ /cweijan.+?ql/ && viewItem =~ /^(esConnection|ftpConnection|ftpFolder)$/",
 					"group": "2_mysql@1"
@@ -579,7 +627,7 @@
 				},
 				{
 					"command": "mysql.connection.terminal",
-					"when": "view =~ /cweijan.+?ql/ && viewItem == connection",
+					"when": "view =~ /cweijan.+?ql/ && viewItem =~ /^(connection|catalog)$/",
 					"group": "inline@2"
 				},
 				{
@@ -590,6 +638,11 @@
 				{
 					"command": "mysql.query.add",
 					"when": "view =~ /cweijan.+?ql/ && viewItem == queryGroup",
+					"group": "inline@0"
+				},
+				{
+					"command": "mysql.query.run",
+					"when": "view =~ /cweijan.+?ql/ && viewItem == query",
 					"group": "inline@0"
 				},
 				{
@@ -676,6 +729,11 @@
 					"command": "mysql.table.design",
 					"when": "view =~ /cweijan.+?ql/ && viewItem == table",
 					"group": "1_inline@0"
+				},
+				{
+					"command": "mysql.template.sql",
+					"when": "view =~ /cweijan.+?ql/ && viewItem == table",
+					"group": "inline@5"
 				},
 				{
 					"command": "mysql.table.source",
@@ -835,12 +893,12 @@
 				{
 					"command": "mysql.ssh.forward.port",
 					"when": "view == github.cweijan.nosql && viewItem == sshConnection",
-					"group": "1_connection@0"
+					"group": "1_nosql@0"
 				},
 				{
 					"command": "mysql.ssh.socks.port",
 					"when": "view == github.cweijan.nosql && viewItem == sshConnection",
-					"group": "1_connection@1"
+					"group": "1_nosql@1"
 				},
 				{
 					"command": "mysql.ssh.file.new",
@@ -903,6 +961,11 @@
 					"default": 100,
 					"description": "%config.defaultSelectLimit%"
 				},
+				"database-client.highlightSQLBlock": {
+					"type": "boolean",
+					"default": false,
+					"description": "Highlight SQL Code block."
+				},
 				"database-client.preferConnectionName": {
 					"type": "boolean",
 					"default": true,
@@ -948,14 +1011,13 @@
 	},
 	"scripts": {
 		"dev": "webpack --progress",
-		"build": "webpack -p --progress",
+		"build": "webpack --progress --mode=production",
 		"lib": "webpack --config webpack.config.lib.js --progress -p",
 		"publich": "vsce publish",
 		"vscode:prepublish": "npm run build"
 	},
 	"devDependencies": {
 		"@antv/g2": "^4.0.9",
-		"@types/mockjs": "^1.0.2",
 		"@types/mongodb": "^3.6.3",
 		"@types/node": "^12.12.6",
 		"@types/ssh2": "^0.5.43",
@@ -989,11 +1051,13 @@
 		"date-format": "^3.0.0",
 		"deepmerge": "^3.2.0",
 		"element-ui": "^2.13.2",
+		"esbuild": "^0.12.16",
+		"g2": "^2.3.13",
 		"ioredis": "^4.23.0",
 		"json-format-highlight": "^1.0.4",
 		"lodash": "^4.17.20",
 		"lodash.defaults": "^4.1.0",
-		"mongodb": "^3.6.3",
+		"mongodb": "^3.6.9",
 		"mysql2": "^2.2.5",
 		"officegen": "^0.6.5",
 		"pg": "^8.5.1",
@@ -1004,14 +1068,14 @@
 		"routington": "^1.0.3",
 		"sqlstring": "^2.3.2",
 		"ssh2": "0.5.4",
+		"supports-color": "^9.0.1",
 		"umy-table": "1.0.8",
 		"vue": "^2.6.11",
 		"vue-router": "^3.4.1",
 		"xregexp": "2.0.0",
 		"xterm": "^4.12.0",
 		"xterm-addon-fit": "^0.5.0",
-		"xterm-addon-search": "^0.5.0",
-		"xterm-addon-search-bar": "^0.2.0",
+		"xterm-addon-search": "^0.8.0",
 		"xterm-addon-web-links": "^0.4.0"
 	},
 	"__metadata": {

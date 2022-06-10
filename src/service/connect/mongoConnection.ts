@@ -18,18 +18,25 @@ export class MongoConnection extends IConnection {
     }
 
     connect(callback: (err: Error) => void): void {
-        let url = `mongodb://${this.node.host}:${this.node.port}`;
-        if (this.node.user || this.node.password) {
-            url = `mongodb://${this.node.user}:${this.node.password}@${this.node.host}:${this.node.port}`;
+        let url=this.node.connectionUrl;
+        if (url) {
+          this.option = { useNewUrlParser: true}
+        } else {
+          url = `mongodb://${this.node.host}:${this.node.port}`;
+          if (this.node.user || this.node.password) {
+            const escapedUser = encodeURIComponent(this.node.user)
+            const escapedPassword = encodeURIComponent(this.node.password)
+            url = `mongodb://${escapedUser}:${escapedPassword}@${this.node.host}:${this.node.port}`;
+          }
         }
         MongoClient.connect(url, this.option, (err, client) => {
-            if (!err) {
-                this.client = client;
-                this.conneted = true;
-            }
-            callback(err)
+          if (!err) {
+            this.client = client;
+            this.conneted = true;
+          }
+          callback(err)
         })
-    }
+      }
 
     run(callback: (client: MongoClient) => void) {
 

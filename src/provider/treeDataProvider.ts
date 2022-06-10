@@ -1,3 +1,4 @@
+import { GlobalState, WorkState } from "@/common/state";
 import { CatalogNode } from "@/model/database/catalogNode";
 import { EsConnectionNode } from "@/model/es/model/esConnectionNode";
 import { FTPConnectionNode } from "@/model/ftp/ftpConnectionNode";
@@ -19,7 +20,7 @@ export class DbTreeDataProvider implements vscode.TreeDataProvider<Node> {
     public readonly onDidChangeTreeData: vscode.Event<Node> = this._onDidChangeTreeData.event;
     public static instances: DbTreeDataProvider[] = []
 
-    constructor(protected context: vscode.ExtensionContext, public readonly connectionKey: string) {
+    constructor(protected context: vscode.ExtensionContext, public connectionKey: string) {
         DbTreeDataProvider.instances.push(this)
     }
 
@@ -38,15 +39,20 @@ export class DbTreeDataProvider implements vscode.TreeDataProvider<Node> {
                 return;
             }
             try {
-                const mark = setTimeout(() => {
+                let mark = setTimeout(() => {
                     res([new InfoNode(`Connect time out!`)])
+                    mark = null;
                 }, element.connectTimeout || 5000);
                 const children = await element.getChildren();
-                clearTimeout(mark)
-                for (const child of children) {
-                    child.parent = element;
+                if (mark) {
+                    clearTimeout(mark)
+                    for (const child of children) {
+                        child.parent = element;
+                    }
+                    res(children);
+                } else {
+                    this.reload(element)
                 }
-                res(children);
             } catch (error) {
                 res([new InfoNode(error)])
             }
@@ -65,22 +71,25 @@ export class DbTreeDataProvider implements vscode.TreeDataProvider<Node> {
 
     public async addConnection(node: Node) {
 
-        node.initKey();
         const newKey = this.getKeyByNode(node)
         node.context = node.global ? this.context.globalState : this.context.workspaceState
 
         const isGlobal = (node as any).isGlobal;
         const configNotChange = newKey == node.connectionKey && isGlobal == node.global
         if (configNotChange) {
-            node.indent({ command: CommandKey.update })
+            await node.indent({ command: CommandKey.update })
             return;
-        } else if (isGlobal != null) {
-            // config has change, remove old connection.
-            node.context = isGlobal ? this.context.globalState : this.context.workspaceState
-            await node.indent({ command: CommandKey.delete, connectionKey: node.connectionKey })
         }
 
-        node.indent({ command: CommandKey.add, connectionKey: newKey })
+        // config has change, remove old connection.
+        if (isGlobal != null) {
+            node.context = isGlobal ? this.context.globalState : this.context.workspaceState
+            await node.indent({ command: CommandKey.delete, connectionKey: node.connectionKey, refresh: false })
+            node.context = node.global ? this.context.globalState : this.context.workspaceState
+        }
+
+        node.connectionKey = newKey
+        await node.indent({ command: CommandKey.add, connectionKey: newKey })
 
     }
 
@@ -89,7 +98,7 @@ export class DbTreeDataProvider implements vscode.TreeDataProvider<Node> {
         if (dbType == DatabaseType.ES || dbType == DatabaseType.REDIS || dbType == DatabaseType.SSH || dbType == DatabaseType.FTP || dbType == DatabaseType.MONGO_DB) {
             return CacheKey.NOSQL_CONNECTION;
         }
-        return CacheKey.ConectionsKey;
+        return CacheKey.DATBASE_CONECTIONS;
     }
 
 
@@ -113,8 +122,8 @@ export class DbTreeDataProvider implements vscode.TreeDataProvider<Node> {
     public async getConnectionNodes(): Promise<Node[]> {
 
         const connetKey = this.connectionKey;
-        let globalConnections = this.context.globalState.get<{ [key: string]: Node }>(connetKey, {});
-        let workspaceConnections = this.context.workspaceState.get<{ [key: string]: Node }>(connetKey, {});
+        let globalConnections = GlobalState.get<{ [key: string]: Node }>(connetKey, {});
+        let workspaceConnections = WorkState.get<{ [key: string]: Node }>(connetKey, {});
 
         return Object.keys(workspaceConnections).map(key => this.getNode(workspaceConnections[key], key, false, connetKey)).concat(
             Object.keys(globalConnections).map(key => this.getNode(globalConnections[key], key, true, connetKey))
@@ -130,6 +139,7 @@ export class DbTreeDataProvider implements vscode.TreeDataProvider<Node> {
         } else if (connectInfo.dbType == DatabaseType.REDIS) {
             node = new RedisConnectionNode(key, connectInfo)
         } else if (connectInfo.dbType == DatabaseType.SSH) {
+            connectInfo.ssh.key = connectInfo.key
             node = new SSHConnectionNode(key, connectInfo, connectInfo.ssh, connectInfo.name)
         } else if (connectInfo.dbType == DatabaseType.FTP) {
             node = new FTPConnectionNode(key, connectInfo)
@@ -155,24 +165,50 @@ export class DbTreeDataProvider implements vscode.TreeDataProvider<Node> {
         }
 
         const dbIdList: string[] = [];
-        const dbIdMap = new Map<string, SchemaNode>();
-        const numbers = (await this.getConnectionNodes()).length > 1
-        for (const dbNode of DatabaseCache.getDatabaseNodeList()) {
-            if (dbNode instanceof UserGroup || dbNode instanceof CatalogNode) { continue }
-            const uid = numbers ? dbNode.uid : dbNode.schema
-            dbIdList.push(uid)
-            dbIdMap.set(uid, dbNode)
-        }
-        if (dbIdList) {
-            vscode.window.showQuickPick(dbIdList).then(async (dbId) => {
-                if (dbId) {
-                    const dbNode = dbIdMap.get(dbId);
-                    ConnectionManager.changeActive(dbNode)
-                    vscode.window.showInformationMessage(`Change active schema to ${dbNode.schema} success!`)
-                }
+        const dbIdMap = new Map<string, Node>();
+        const connectionNodes = await this.getConnectionNodes()
+        for (const cNode of connectionNodes) {
+            if (cNode.dbType == DatabaseType.SQLITE) {
+                const uid = cNode.label;
+                dbIdList.push(uid)
+                dbIdMap.set(uid, cNode)
+                continue;
+            }
 
-            })
+            let schemaList: Node[];
+            if (cNode.dbType == DatabaseType.MSSQL || cNode.dbType == DatabaseType.PG) {
+                const tempList = DatabaseCache.getSchemaListOfConnection(cNode.uid);
+                schemaList = [];
+                for (const catalogNode of tempList) {
+                    if (catalogNode instanceof UserGroup) continue;
+                    schemaList.push(...(await catalogNode.getChildren()))
+                }
+            } else {
+                schemaList = DatabaseCache.getSchemaListOfConnection(cNode.uid)
+            }
+
+            for (const schemaNode of schemaList) {
+                if (schemaNode instanceof UserGroup || schemaNode instanceof CatalogNode) { continue }
+                let uid = `${cNode.label}#${schemaNode.schema}`
+                if (cNode.dbType == DatabaseType.PG || cNode.dbType == DatabaseType.MSSQL) {
+                    uid = `${cNode.label}#${schemaNode.database}#${schemaNode.schema}`
+                }
+                dbIdList.push(uid)
+                dbIdMap.set(uid, schemaNode)
+            }
+
         }
+
+        if (dbIdList.length == 0) {
+            return;
+        }
+
+        vscode.window.showQuickPick(dbIdList).then(async (dbId) => {
+            if (dbId) {
+                const dbNode = dbIdMap.get(dbId);
+                ConnectionManager.changeActive(dbNode)
+            }
+        })
 
     }
 

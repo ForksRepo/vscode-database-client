@@ -2,7 +2,7 @@ const path = require('path');
 const { VueLoaderPlugin } = require('vue-loader')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const CopyWebpackPlugin = require('copy-webpack-plugin')
-const isProd = process.argv.indexOf('-p') >= 0;
+const isProd = process.argv.indexOf('--mode=production') >= 0;
 var webpack = require('webpack');
 
 module.exports = [
@@ -18,7 +18,6 @@ module.exports = [
             path: path.resolve(__dirname, 'out'),
             filename: 'extension.js',
             libraryTarget: 'commonjs2',
-            // config source map sources url
             devtoolModuleFilenameTemplate: '[absoluteResourcePath]',
         },
         externals: {
@@ -29,18 +28,14 @@ module.exports = [
         resolve: {
             extensions: ['.ts', '.js'],
             alias: {
-                '@': path.resolve(__dirname, './src'),
-                '~': path.resolve(__dirname, './src')
+                '@': path.resolve(__dirname, './src')
             }
         },
         plugins: [
-            new webpack.IgnorePlugin(/^(pg-native|supports-color|cardinal|encoding|aws4)$/),
-            new CopyWebpackPlugin({
-                patterns: [{ from: 'src/bin', to: './bin' }]
-            }),
+            new webpack.IgnorePlugin(/^(pg-native|cardinal|encoding|aws4)$/)
         ],
         module: { rules: [{ test: /\.ts$/, exclude: /(node_modules|bin)/, use: ['ts-loader'] }] },
-        optimization: { minimize: false },
+        optimization: { minimize: isProd },
         watch: !isProd,
         mode: isProd ? 'production' : 'development',
         devtool: isProd ? false : 'source-map',
