@@ -1,6 +1,5 @@
 import { CacheKey, DatabaseType } from "@/common/constants";
-import { EsIndexGroup } from "@/model/es/model/esIndexGroupNode";
-import { SqlCodeLensProvider } from "@/provider/sqlCodeLensProvider";
+import { SqlCodeLensProvider } from "@/provider/codelen/sqlCodeLensProvider";
 import * as vscode from "vscode";
 import { ExtensionContext } from "vscode";
 import { FileManager } from "../common/filesManager";
@@ -36,7 +35,9 @@ import { SettingService } from "./setting/settingService";
 import ConnectionProvider from "@/model/ssh/connectionProvider";
 import { SqliTeDialect } from "./dialect/sqliteDialect";
 import { MongoPageService } from "./page/mongoPageService";
-import { HistoryProvider } from "@/provider/history/historyProvider";
+import { HighlightCreator } from "@/provider/codelen/highlightCreator";
+import { SQLSymbolProvide } from "@/provider/sqlSymbolProvide";
+import { MysqlDumpService } from "./dump/mysqlDumpService";
 
 export class ServiceManager {
 
@@ -48,13 +49,13 @@ export class ServiceManager {
     public nosqlProvider: DbTreeDataProvider;
     public settingService: SettingService;
     public statusService: StatusService;
-    public dumpService: DumpService;
+    public codeLenProvider: SqlCodeLensProvider;
     private isInit = false;
 
     constructor(private readonly context: ExtensionContext) {
         Global.context = context;
         this.mockRunner = new MockRunner();
-        DatabaseCache.initCache(context);
+        DatabaseCache.initCache();
         ViewManager.initExtesnsionPath(context.extensionPath);
         FileManager.init(context)
         new ConnectionProvider();
@@ -62,9 +63,13 @@ export class ServiceManager {
 
     public init(): vscode.Disposable[] {
         if (this.isInit) { return [] }
+        const codeLenProvider = new SqlCodeLensProvider();
+        this.codeLenProvider = codeLenProvider;
+        new HighlightCreator()
         const res: vscode.Disposable[] = [
             vscode.languages.registerDocumentRangeFormattingEditProvider('sql', new SqlFormattingProvider()),
-            vscode.languages.registerCodeLensProvider('sql', new SqlCodeLensProvider()),
+            vscode.languages.registerCodeLensProvider('sql', codeLenProvider),
+            vscode.languages.registerDocumentSymbolProvider('sql', new SQLSymbolProvide()),
             vscode.languages.registerHoverProvider('sql', new TableInfoHoverProvider()),
             vscode.languages.registerCompletionItemProvider('sql', new CompletionProvider(), ' ', '.', ">", "<", "=", "(")
         ]
@@ -80,7 +85,7 @@ export class ServiceManager {
 
 
     private initTreeView() {
-        this.provider = new DbTreeDataProvider(this.context, CacheKey.ConectionsKey);
+        this.provider = new DbTreeDataProvider(this.context, CacheKey.DATBASE_CONECTIONS);
         const treeview = vscode.window.createTreeView("github.cweijan.mysql", {
             treeDataProvider: this.provider,
         });
@@ -110,8 +115,16 @@ export class ServiceManager {
 
     private initMysqlService() {
         this.settingService = new MysqlSettingService();
-        this.dumpService = new DumpService();
         this.statusService = new MysqlStatusService()
+    }
+
+    public static getDumpService(dbType: DatabaseType): DumpService {
+        if (!dbType) dbType = DatabaseType.MYSQL
+        switch (dbType) {
+            case DatabaseType.MYSQL:
+                return new MysqlDumpService()
+        }
+        return new DumpService()
     }
 
     public static getImportService(dbType: DatabaseType) {

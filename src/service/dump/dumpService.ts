@@ -16,6 +16,7 @@ import { SchemaNode } from "@/model/database/schemaNode";
 import { DumpDocument as GenerateDocument } from "./generateDocument";
 import { createWriteStream } from "fs";
 import { ColumnNode } from "@/model/other/columnNode";
+import { Console } from "@/common/Console";
 
 export class DumpService {
 
@@ -47,10 +48,7 @@ export class DumpService {
             }
         }
 
-        const tableName = node instanceof TableNode ? node.table : null;
-        const exportSqlName = `${tableName ? tableName : ''}_${format('yyyy-MM-dd_hhmmss', new Date())}_${node.schema}.sql`;
-
-        vscode.window.showSaveDialog({ saveLabel: "Select export file path", defaultUri: vscode.Uri.file(exportSqlName), filters: { 'sql': ['sql'] } }).then((folderPath) => {
+        this.triggerSave(node).then((folderPath) => {
             if (folderPath) {
                 this.dumpData(node, folderPath.fsPath, withData, nodes)
             }
@@ -58,7 +56,14 @@ export class DumpService {
 
     }
 
-    protected dumpData(node: Node, dumpFilePath: string, withData: boolean, items: vscode.QuickPickItem[]): void {
+    protected triggerSave(node: Node) {
+        const tableName = node instanceof TableNode ? node.table : null;
+        const exportSqlName = `${tableName ? tableName : ''}_${format('yyyy-MM-dd_hhmmss', new Date())}_${node.schema}.sql`;
+
+        return vscode.window.showSaveDialog({ saveLabel: "Select export file path", defaultUri: vscode.Uri.file(exportSqlName), filters: { 'sql': ['sql'] } });
+    }
+
+    private dumpData(node: Node, dumpFilePath: string, withData: boolean, items: vscode.QuickPickItem[]): void {
 
         const tables = items.filter(item => item.description == ModelType.TABLE).map(item => item.label)
         const viewList = items.filter(item => item.description == ModelType.VIEW).map(item => item.label)
@@ -83,7 +88,7 @@ export class DumpService {
                         vscode.commands.executeCommand('vscode.open', vscode.Uri.file(dumpFilePath));
                     }
                 })
-            }).finally(done)
+            }).catch(err => Console.log(err.message)).finally(done)
         })
 
     }
@@ -118,7 +123,7 @@ export class DumpService {
                             ...(await tableNode.getChildren()).map((child: ColumnNode) => {
                                 const column = child.column;
                                 return [
-                                    child.label, child.type, column.comment, child.isPrimaryKey?'YES':'', column.nullable,
+                                    child.label, child.type, column.comment, child.isPrimaryKey ? 'YES' : '', column.nullable,
                                     column.defaultValue
                                 ]
                             })

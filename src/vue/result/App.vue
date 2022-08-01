@@ -35,6 +35,7 @@ import ExportDialog from "./component/ExportDialog.vue";
 import Toolbar from "./component/Toolbar";
 import EditDialog from "./component/EditDialog";
 import { util } from "./mixin/util";
+import { wrapByDb } from "@/common/wrapper";
 let vscodeEvent;
 
 export default {
@@ -161,6 +162,7 @@ export default {
       if (!data) return;
       const response = data.content;
       console.log(data);
+      this.result.transId=response.transId;
       this.table.loading = false;
       switch (data.type) {
         case "EXPORT_DONE":
@@ -175,6 +177,7 @@ export default {
           break;
         case "NEXT_PAGE":
           this.result.data = response.data;
+          this.result.costTime=response.costTime;
           this.toolbar.sql = response.sql;
           this.result.data.unshift({ isFilter: true, content: "" });
           break;
@@ -326,12 +329,11 @@ export default {
             }")
               .deleteMany({_id:{$in:[${checkboxRecords.join(",")}]}})`;
           } else {
+            const table=wrapByDb(this.result.table,this.result.dbType);
             deleteSql =
               checkboxRecords.length > 1
-                ? `DELETE FROM ${this.result.table} WHERE ${
-                    this.result.primaryKey
-                  } in (${checkboxRecords.join(",")})`
-                : `DELETE FROM ${this.result.table} WHERE ${this.result.primaryKey}=${checkboxRecords[0]}`;
+                ? `DELETE FROM ${table} WHERE ${this.result.primaryKey} in (${checkboxRecords.join(",")})`
+                : `DELETE FROM ${table} WHERE ${this.result.primaryKey}=${checkboxRecords[0]}`;
           }
           this.execute(deleteSql);
         })

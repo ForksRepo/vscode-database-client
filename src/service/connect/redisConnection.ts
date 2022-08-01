@@ -1,7 +1,7 @@
 import { Node } from "@/model/interface/node";
 import { IConnection, queryCallback } from "./connection";
 import * as fs from "fs";
-import * as IoRedis from "ioredis";
+import IoRedis from "ioredis";
 
 export class RedisConnection extends IConnection {
     private conneted: boolean;
@@ -19,6 +19,7 @@ export class RedisConnection extends IConnection {
         if(node.useSSL){
             config.tls={
                 rejectUnauthorized: false,
+                ca: (node.caPath) ? fs.readFileSync(node.caPath) : null,
                 cert: ( node.clientCertPath) ? fs.readFileSync(node.clientCertPath) : null,
                 key: ( node.clientKeyPath) ? fs.readFileSync(node.clientKeyPath) : null,
                 minVersion: 'TLSv1'

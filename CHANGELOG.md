@@ -1,5 +1,48 @@
 # CHANGELOG
 
+# 3.9.8 2021-7-27
+
+- Support special ssl ca certificate.
+- Hover info add action to query table data.
+- Fix complection bug.
+- ElasticSearch support connect with token or account.
+- Support connect by native ssh command.
+- Fix open struct sync fail.
+
+# 3.9.6 2021-7-22
+
+- Add hover to run selected sql.
+- Add sql template action icon to table node.
+
+# 3.9.5 2021-7-19
+
+- Using mysqldump to dump database.
+- Fix connect to elasticsearch using ssh tunnel fail.
+- Better postgresql support.
+
+# 3.9.3 2021-7-2
+
+- Better sql complection.
+- Fix multi line space ignored.
+
+# 3.9.2 2021-6-24
+
+- Enhance sql detect.
+- Update run query shortcut.
+- Keep query file content.
+- Create SQL document outline.
+
+# 3.9.0 2021-6-22
+
+- Support edit connection config.
+- Isolate the configuration of vscode and ssh-remote.
+- Support load data when load timeout.
+- Support install sqlite3 from connect page.
+- Better change active database item.
+- Fix vscode shortcut not working on ssh terminal.
+- Fix mongo export data fail.
+- Update some ui.
+
 # 3.8.9 2021-6-16
 
 - Add shortcut of run sql on result view(ctrl+enter).

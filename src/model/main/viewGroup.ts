@@ -15,7 +15,7 @@ export class ViewGroup extends Node {
         super("View")
         this.init(parent)
         if(Util.supportColorIcon){
-            this.iconPath=new ThemeIcon("menu",new ThemeColor("terminal.ansiBlue"))
+            this.iconPath=new ThemeIcon("menu",new ThemeColor("problemsWarningIcon.foreground"))
         }
     }
 
@@ -32,7 +32,7 @@ export class ViewGroup extends Node {
                     return new ViewNode(table, this);
                 });
                 if (tableNodes.length == 0) {
-                    tableNodes = [new InfoNode("This schema has no view")];
+                    tableNodes = [new InfoNode("This schema has no views")];
                 }
                 this.setChildCache(tableNodes);
                 return tableNodes;
